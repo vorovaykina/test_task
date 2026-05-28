@@ -1,0 +1,40 @@
+graph TD
+    classDef mobile fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef gateway fill:#cce5ff,stroke:#007bff,stroke-width:2px;
+    classDef broker fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
+    classDef service fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    classDef external fill:#e2e3e5,stroke:#6c757d,stroke-width:2px;
+    classDef db fill:#e8daef,stroke:#8e44ad,stroke-width:2px;
+
+    Client[" Мобильное приложение\n(iOS / Android)"]:::mobile
+    API_GW["API Gateway / BFF"]:::gateway
+    
+    subgraph Microservices ["Микросервисы-Инициаторы (Бизнес-логика)"]
+        Cart[" Сервис Корзины\n(Брошенная корзина)"]:::service
+        Order[" Сервис Заказов\n(Отмена заказа)"]:::service
+        Promo[" Сервис Маркетинга\n(Рекламная рассылка)"]:::service
+    end
+
+    Broker{"Брокер сообщений\n(Kafka / RabbitMQ)"}:::broker
+    
+    PushService[" Push Notification Service"]:::service
+    TokenDB[(" БД Токенов\n(User_ID -> Device_Token)")]:::db
+
+    APNS[" APNs\n(Apple Push Service)"]:::external
+    FCM[" FCM\n(Firebase Cloud Messaging)"]:::external
+
+    Client -->|1. Передает Device Token| API_GW
+    API_GW -->|2. Роутит запрос| PushService
+    PushService -->|3. Сохраняет| TokenDB
+
+    Cart -->|Событие: cart_abandoned| Broker
+    Order -->|Событие: order_cancelled| Broker
+    Promo -->|Событие: promo_campaign| Broker
+
+    Broker -->|Слушает топики| PushService
+    PushService -.->|Получает Device Token| TokenDB
+    PushService -->|Формирует Payload| APNS
+    PushService -->|Формирует Payload| FCM
+
+    APNS -->|Доставка iOS| Client
+    FCM -->|Доставка Android| Client
